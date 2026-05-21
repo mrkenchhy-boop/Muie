@@ -104,19 +104,21 @@
 <footer>© 2026 Mulheres</footer>
 
 <script>
-// Link público exclusivo para guardar a contagem da página de Negras
-const API_URL = "https://kvdb.io/MN87Xg6pUshT7gXTeFv3bE/votos_negras";
-
 const PAGE_ID = "negras";
+const DB_KEY = "votos_globais_" + PAGE_ID;
 let jaVotou = localStorage.getItem("voto_" + PAGE_ID) === "sim";
-let chart;
+
+// Canal de comunicação interno do navegador
+const canalSincronizacao = new BroadcastChannel('sincronizacao_votos_projeto');
 
 const estruturaPadrao = {
     "Tems": 0, "Keke Palmer": 0, "H.E.R": 0, "Alicia Keys": 0,
     "Ayra Starr": 0, "Amandla Stenberg": 0, "Summer Walker": 0,
     "Tyla": 0, "Normani": 0, "Zendaya": 0
 };
-let votos = { ...estruturaPadrao };
+
+let votos = carregarVotosLocais();
+let chart;
 
 function bloquearBotoes(){
     document.querySelectorAll("main button").forEach(btn => {
@@ -130,7 +132,6 @@ function atualizarGrafico(){
     if (!canvasElement) return;
 
     const ctx = canvasElement.getContext("2d");
-
     if(chart){ chart.destroy(); }
 
     chart = new Chart(ctx, {
@@ -138,78 +139,71 @@ function atualizarGrafico(){
         data: {
             labels: Object.keys(votos),
             datasets: [{
-                label: "Votos Globais (Online)",
+                label: "Votos Totais (Sincronizados)",
                 data: Object.values(votos),
-                backgroundColor: 'rgba(156, 39, 176, 0.6)', // Tom roxo/magenta translúcido
-                borderColor: 'rgba(156, 39, 176, 1)',     // Borda sólida
+                backgroundColor: 'rgba(156, 39, 176, 0.6)', // Roxo/Magenta translúcido original
+                borderColor: 'rgba(156, 39, 176, 1)',       // Roxo/Magenta sólido original
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1 } 
-                } 
-            }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
     });
 }
 
-// Carrega os dados online da nuvem
-function carregarVotosOnline() {
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dados => {
-            votos = { ...estruturaPadrao, ...dados };
-            atualizarGrafico();
-        })
-        .catch(() => {
-            // Se o repositório estiver limpo, envia a estrutura inicial para a nuvem
-            salvarVotosOnline(estruturaPadrao);
-        });
+function carregarVotosLocais() {
+    const dadosSalvos = localStorage.getItem(DB_KEY);
+    return dadosSalvos ? JSON.parse(dadosSalvos) : { ...estruturaPadrao };
 }
 
-function salvarVotosOnline(novosVotos) {
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify(novosVotos)
-    }).then(() => {
-        votos = novosVotos;
-        atualizarGrafico();
-    });
+function salvarVotosLocais(novosVotos) {
+    votos = novosVotos;
+    localStorage.setItem(DB_KEY, JSON.stringify(novosVotos));
+    atualizarGrafico();
+    
+    // Notifica as abas vizinhas imediatamente
+    canalSincronizacao.postMessage({ pagina: PAGE_ID, novosVotos: novosVotos });
 }
 
 function votar(nome) {
-    if(jaVotou){ alert("Você já votou!"); return; }
+    if(jaVotou){ alert("Você já votou nesta página!"); return; }
 
-    // Baixa os valores mais recentes da nuvem antes de adicionar o voto do usuário
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dadosNuvem => {
-            let dadosAtualizados = { ...estruturaPadrao, ...dadosNuvem };
-            dadosAtualizados[nome]++;
-            
-            // Grava de volta o valor atualizado na internet
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify(dadosAtualizados)
-            }).then(() => {
-                localStorage.setItem("voto_" + PAGE_ID, "sim");
-                jaVotou = true;
-                bloquearBotoes();
-                carregarVotosOnline();
-            });
-        });
+    let dadosAtuais = carregarVotosLocais();
+    if (dadosAtuais[nome] !== undefined) {
+        dadosAtuais[nome]++;
+    } else {
+        console.error("Nome do botão não encontrado:", nome);
+        return;
+    }
+
+    localStorage.setItem("voto_" + PAGE_ID, "sim");
+    jaVotou = true;
+    bloquearBotoes();
+    salvarVotosLocais(dadosAtuais);
 }
 
-// Sincroniza e busca novos dados de outros usuários de 3 em 3 segundos
-setInterval(carregarVotosOnline, 3000);
+// Ouvinte de mensagens para sincronizar o reset geral ou abas simultâneas
+canalSincronizacao.onmessage = (evento) => {
+    if (evento.data.pagina === PAGE_ID) {
+        votos = evento.data.novosVotos;
+        atualizarGrafico();
+    }
+    
+    if (localStorage.getItem("voto_" + PAGE_ID) !== "sim") {
+        jaVotou = false;
+        document.querySelectorAll("main button").forEach(btn => {
+            btn.disabled = false;
+            btn.innerText = "Votar";
+        });
+        votos = carregarVotosLocais();
+        atualizarGrafico();
+    }
+};
 
-// Inicialização da página
 if(jaVotou){ bloquearBotoes(); }
-carregarVotosOnline();
+atualizarGrafico();
 </script>
 
 </body>

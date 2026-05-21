@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -106,17 +107,20 @@
 </footer>
 
 <script>
-const API_URL = "https://kvdb.io/MN87Xg6pUshT7gXTeFv3bE/votos_loiras";
-
 const PAGE_ID = "loiras";
+const DB_KEY = "votos_globais_" + PAGE_ID;
 let jaVotou = localStorage.getItem("voto_" + PAGE_ID) === "sim";
+
+// Canal de comunicação interno do navegador
+const canalSincronizacao = new BroadcastChannel('sincronizacao_votos_projeto');
 
 const estruturaPadrao = {
     "Margot Robbie": 0, "Taylor Swift": 0, "Scarlett Johansson": 0, "Sydney Sweeney": 0,
     "Anya Taylor-Joy": 0, "Blake Lively": 0, "Shakira": 0, "Charlize Theron": 0,
     "Amanda Seyfried": 0, "Dove Cameron": 0
 };
-let votos = { ...estruturaPadrao };
+
+let votos = carregarVotosLocais();
 let chart;
 
 function bloquearBotoes(){
@@ -131,84 +135,78 @@ function atualizarGrafico(){
     if (!canvasElement) return;
 
     const ctx = canvasElement.getContext("2d");
-
-    if(chart){
-        chart.destroy();
-    }
+    if(chart){ chart.destroy(); }
 
     chart = new Chart(ctx, {
         type: "bar",
         data: {
             labels: Object.keys(votos),
             datasets: [{
-                label: "Votos Globais (Online)",
+                label: "Votos Totais (Sincronizados)",
                 data: Object.values(votos),
-                backgroundColor: 'rgba(244, 197, 66, 0.6)', // Amarelo/Dourado transparente
-                borderColor: 'rgba(244, 197, 66, 1)',     // Borda sólida
+                backgroundColor: 'rgba(244, 197, 66, 0.6)', // Amarelo translúcido original
+                borderColor: 'rgba(244, 197, 66, 1)',       // Amarelo sólido original
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
     });
 }
 
-function carregarVotosOnline() {
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dados => {
-            votos = { ...estruturaPadrao, ...dados };
-            atualizarGrafico();
-        })
-        .catch(() => {
-            salvarVotosOnline(estruturaPadrao);
-        });
+function carregarVotosLocais() {
+    const dadosSalvos = localStorage.getItem(DB_KEY);
+    return dadosSalvos ? JSON.parse(dadosSalvos) : { ...estruturaPadrao };
 }
 
-function salvarVotosOnline(novosVotos) {
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify(novosVotos)
-    }).then(() => {
-        votos = novosVotos;
-        atualizarGrafico();
-    });
+function salvarVotosLocais(novosVotos) {
+    votos = novosVotos;
+    localStorage.setItem(DB_KEY, JSON.stringify(novosVotos));
+    atualizarGrafico();
+    
+    // Compartilha os dados com as outras abas instantaneamente
+    canalSincronizacao.postMessage({ pagina: PAGE_ID, novosVotos: novosVotos });
 }
 
-function votar(nome){
+function votar(nome) {
     if(jaVotou){ alert("Você já votou nesta página!"); return; }
 
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dadosNuvem => {
-            let dadosAtualizados = { ...estruturaPadrao, ...dadosNuvem };
-            dadosAtualizados[nome]++;
-            
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify(dadosAtualizados)
-            }).then(() => {
-                localStorage.setItem("voto_" + PAGE_ID, "sim");
-                jaVotou = true;
-                bloquearBotoes();
-                carregarVotosOnline();
-            });
-        });
+    let dadosAtuais = carregarVotosLocais();
+    if (dadosAtuais[nome] !== undefined) {
+        dadosAtuais[nome]++;
+    } else {
+        console.error("Nome do botão inválido:", nome);
+        return;
+    }
+
+    localStorage.setItem("voto_" + PAGE_ID, "sim");
+    jaVotou = true;
+    bloquearBotoes();
+    salvarVotosLocais(dadosAtuais);
 }
 
-// Atualização assíncrona de 3 em 3 segundos
-setInterval(carregarVotosOnline, 3000);
+// Recebe comandos das outras abas (como o reset vindo da index.html)
+canalSincronizacao.onmessage = (evento) => {
+    if (evento.data.pagina === PAGE_ID) {
+        votos = evento.data.novosVotos;
+        atualizarGrafico();
+    }
+    
+    if (localStorage.getItem("voto_" + PAGE_ID) !== "sim") {
+        jaVotou = false;
+        document.querySelectorAll("main button").forEach(btn => {
+            btn.disabled = false;
+            btn.innerText = "Votar";
+        });
+        votos = carregarVotosLocais();
+        atualizarGrafico();
+    }
+};
 
-// Inicialização
 if(jaVotou){ bloquearBotoes(); }
-carregarVotosOnline();
+atualizarGrafico();
 </script>
 
 </body>

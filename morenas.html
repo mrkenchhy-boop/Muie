@@ -105,18 +105,20 @@
 <footer>© 2026 Mulheres</footer>
 
 <script>
-// Link exclusivo na nuvem para armazenar os votos da categoria Morenas
-const API_URL = "https://kvdb.io/MN87Xg6pUshT7gXTeFv3bE/votos_morenas";
-
 const PAGE_ID = "morenas";
+const DB_KEY = "votos_globais_" + PAGE_ID;
 let jaVotou = localStorage.getItem("voto_" + PAGE_ID) === "sim";
 
+// Cria o canal de sincronização entre as abas abertas no navegador
+const canalSincronizacao = new BroadcastChannel('sincronizacao_votos_projeto');
+
 const estruturaPadrao = {
-    "Salma Hayek": 0, "Jessica Alba": 0, "Dua Lipa": 0, "Camila Mendes": 0,
-    "Monica Bellucci": 0, "Jenna Ortega": 0, "Gal Gadot": 0, "Selena Gomez": 0,
-    "Ana de Armas": 0, "Megan Fox": 0
+    "Megan Fox": 0, "Ana de Armas": 0, "Selena Gomez": 0, "Gal Gadot": 0,
+    "Jenna Ortega": 0, "Monica Bellucci": 0, "Camila Mendes": 0, "Dua Lipa": 0,
+    "Jessica Alba": 0, "Salma Hayek": 0
 };
-let votos = { ...estruturaPadrao };
+
+let votos = carregarVotosLocais();
 let chart;
 
 function bloquearBotoes(){
@@ -131,91 +133,80 @@ function atualizarGrafico(){
     if (!canvasElement) return;
 
     const ctx = canvasElement.getContext("2d");
-
-    if(chart){
-        chart.destroy();
-    }
+    if(chart){ chart.destroy(); }
 
     chart = new Chart(ctx, {
         type: "bar",
         data: {
             labels: Object.keys(votos),
             datasets: [{
-                label: "Votos Globais (Online)",
+                label: "Votos Totais (Sincronizados)",
                 data: Object.values(votos),
-                backgroundColor: 'rgba(54, 162, 235, 0.6)', // Cor azulada para combinar com a interface
-                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(139, 69, 19, 0.6)', // Marrom translúcido original
+                borderColor: 'rgba(139, 69, 19, 1)',       // Marrom sólido original
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            }
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
     });
 }
 
-// Carrega dados direto do servidor remoto
-function carregarVotosOnline() {
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dados => {
-            votos = { ...estruturaPadrao, ...dados };
-            atualizarGrafico();
-        })
-        .catch(() => {
-            // Se o repositório estiver nulo, cria a estrutura inicial
-            salvarVotosOnline(estruturaPadrao);
-        });
+function carregarVotosLocais() {
+    const dadosSalvos = localStorage.getItem(DB_KEY);
+    return dadosSalvos ? JSON.parse(dadosSalvos) : { ...estruturaPadrao };
 }
 
-function salvarVotosOnline(novosVotos) {
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify(novosVotos)
-    }).then(() => {
-        votos = novosVotos;
+function salvarVotosLocais(novosVotos) {
+    votos = novosVotos;
+    localStorage.setItem(DB_KEY, JSON.stringify(novosVotos));
+    atualizarGrafico();
+    
+    // Dispara as mudanças para as outras abas que estiverem abertas
+    canalSincronizacao.postMessage({ pagina: PAGE_ID, novosVotos: novosVotos });
+}
+
+function votar(nome) {
+    if(jaVotou){ alert("Você já votou nesta página!"); return; }
+
+    let dadosAtuais = carregarVotosLocais();
+    if (dadosAtuais[nome] !== undefined) {
+        dadosAtuais[nome]++;
+    } else {
+        console.error("Nome do botão não encontrado na lista:", nome);
+        return;
+    }
+
+    localStorage.setItem("voto_" + PAGE_ID, "sim");
+    jaVotou = true;
+    bloquearBotoes();
+    salvarVotosLocais(dadosAtuais);
+}
+
+// Fica ouvindo comandos das outras páginas (como o Reset Geral vindo do index.html)
+canalSincronizacao.onmessage = (evento) => {
+    if (evento.data.pagina === PAGE_ID) {
+        votos = evento.data.novosVotos;
         atualizarGrafico();
-    });
-}
-
-function votar(nome){
-    if(jaVotou){ alert("Você já votou!"); return; }
-
-    // Busca o estado mais recente do banco antes de incrementar o voto
-    fetch(API_URL)
-        .then(res => res.json())
-        .then(dadosNuvem => {
-            let dadosAtualizados = { ...estruturaPadrao, ...dadosNuvem };
-            dadosAtualizados[nome]++;
-            
-            // Grava os novos números na nuvem global
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify(dadosAtualizados)
-            }).then(() => {
-                localStorage.setItem("voto_" + PAGE_ID, "sim");
-                jaVotou = true;
-                bloquearBotoes();
-                carregarVotosOnline();
-            });
+    }
+    
+    // Caso a pessoa clique em "Resetar Todos os Votos do Site" na Home
+    if (localStorage.getItem("voto_" + PAGE_ID) !== "sim") {
+        jaVotou = false;
+        document.querySelectorAll("main button").forEach(btn => {
+            btn.disabled = false;
+            btn.innerText = "Votar";
         });
-}
+        votos = carregarVotosLocais();
+        atualizarGrafico();
+    }
+};
 
-// Sincroniza de 3 em 3 segundos para capturar novos votos externos
-setInterval(carregarVotosOnline, 3000);
-
-// Inicialização
+// Inicialização imediata sem travar a renderização
 if(jaVotou){ bloquearBotoes(); }
-carregarVotosOnline();
+atualizarGrafico();
 </script>
-
 </body>
 </html>
-
-

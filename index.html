@@ -52,9 +52,47 @@
         <p><b>Loiras:</b> estrelas do cinema e música internacional</p>
         <p><b>Morenas:</b> artistas e atrizes icônicas</p>
         <p><b>Negras:</b> grandes nomes da música e atuação mundial</p>
+        <p><b>Ruivas:</b> atrizes e personalidades marcantes</p>
     </section>
 
 </main>
+
+<div style="text-align: center;">
+    <button onclick="resetarTodasAsCategorias()" style="background: #d9534f; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 20px 0;">
+        Resetar Todos os Votos do Site
+    </button>
+</div>
+
+<script>
+function resetarTodasAsCategorias() {
+    if (confirm("Tem certeza que deseja zerar os votos de TODAS as páginas?")) {
+        
+        // 1. Limpa os votos locais e as travas de "já votou" do navegador
+        localStorage.clear();
+
+        // 2. Abre o canal de comunicação interno para atualizar as abas abertas em tempo real
+        const canalSincronizacao = new BroadcastChannel('sincronizacao_votos_projeto');
+
+        // Estrutura padrão com todos os nomes reais correspondentes de cada arquivo html
+        const categorias = [
+            { id: "loiras", dados: { "Margot Robbie": 0, "Taylor Swift": 0, "Scarlett Johansson": 0, "Sydney Sweeney": 0, "Anya Taylor-Joy": 0, "Blake Lively": 0, "Shakira": 0, "Charlize Theron": 0, "Amanda Seyfried": 0, "Dove Cameron": 0 } },
+            { id: "ruivas", dados: { "Jessica Chastain": 0, "Julianne Moore": 0, "Amy Adams": 0, "Karen Gillan": 0, "Isla Fisher": 0, "Sophie Turner": 0, "Madelaine Petsch": 0, "Emma Stone": 0, "Bryce Dallas Howard": 0, "Debra Messing": 0 } },
+            { id: "negras", dados: { "Tems": 0, "Keke Palmer": 0, "H.E.R": 0, "Alicia Keys": 0, "Ayra Starr": 0, "Amandla Stenberg": 0, "Summer Walker": 0, "Tyla": 0, "Normani": 0, "Zendaya": 0 } },
+            { id: "morenas", dados: { "Megan Fox": 0, "Ana de Armas": 0, "Selena Gomez": 0, "Gal Gadot": 0, "Jenna Ortega": 0, "Monica Bellucci": 0, "Camila Mendes": 0, "Dua Lipa": 0, "Jessica Alba": 0, "Salma Hayek": 0 } }
+        ];
+
+        // 3. Sobrescreve os dados no localStorage e emite o aviso do reset pelo canal
+        categorias.forEach(cat => {
+            const dbKey = "votos_globais_" + cat.id;
+            localStorage.setItem(dbKey, JSON.stringify(cat.dados));
+            canalSincronizacao.postMessage({ pagina: cat.id, novosVotos: cat.dados });
+        });
+
+        alert("Sucesso! Todos os gráficos foram reiniciados localmente.");
+        window.location.reload();
+    }
+}
+</script>
 
 <footer>
     © 2026 Ranking Feminino | Projeto Web

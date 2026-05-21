@@ -1,0 +1,164 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    background:#111;
+    color:white;
+}
+
+/* HEADER */
+header{
+    background:#1c1c1c;
+    padding:30px;
+    text-align:center;
+}
+
+header h1{
+    font-size:45px;
+    margin-bottom:10px;
+}
+
+header h2{
+    color:#ccc;
+    margin-bottom:20px;
+}
+
+/* NAV */
+nav{
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+nav a{
+    text-decoration:none;
+    color:white;
+    background:#ffcc00;
+    padding:10px 20px;
+    border-radius:10px;
+    font-weight:bold;
+    transition:0.3s;
+}
+
+nav a:hover{
+    transform:scale(1.05);
+}
+
+/* MAIN */
+main{
+    width:90%;
+    max-width:1200px;
+    margin:auto;
+    padding:40px 0;
+}
+
+/* SEÇÕES */
+section{
+    background:#1b1b1b;
+    margin-bottom:40px;
+    padding:25px;
+    border-radius:20px;
+    box-shadow:0 0 15px rgba(0,0,0,0.5);
+}
+
+section h2{
+    margin-bottom:20px;
+    color:#ffcc00;
+}
+
+section p{
+    line-height:1.7;
+    margin-bottom:15px;
+    color:#ddd;
+}
+
+/* BOTÃO */
+button{
+    background:#ffcc00;
+    border:none;
+    padding:12px 25px;
+    border-radius:12px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+    margin-top:15px;
+}
+
+button:hover{
+    transform:scale(1.05);
+}
+
+/* GRAFICO */
+.grafico-container{
+    background:white;
+    padding:20px;
+    border-radius:20px;
+    margin-top:50px;
+}
+
+/* FOOTER */
+footer{
+    text-align:center;
+    padding:30px;
+    background:#1c1c1c;
+    margin-top:40px;
+}
+
+/* ========================= */
+/* IMAGENS FLUTUANDO */
+/* ========================= */
+
+img{
+    width:100%;
+    max-width:450px;
+    border-radius:12px;
+    display:block;
+    margin:10px auto;
+    animation:flutuar 3s ease-in-out infinite;
+}
+
+@keyframes flutuar{
+    0%{
+        transform: translateY(0);
+    }
+
+    50%{
+        transform: translateY(-10px);
+    }
+
+    100%{
+        transform: translateY(0);
+    }
+}
+
+/* ========================= */
+/* RESPONSIVO MOBILE */
+/* ========================= */
+
+@media (max-width: 600px){
+
+    header h1{
+        font-size:30px;
+    }
+
+    nav{
+        flex-direction:column;
+        gap:10px;
+    }
+
+    section{
+        padding:15px;
+    }
+
+    img{
+        max-width:100%;
+    }
+} 
+
+    
